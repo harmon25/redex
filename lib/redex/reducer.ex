@@ -24,9 +24,13 @@ defmodule Redex.Reducer do
    Agent.cast(pid, &apply(module, :action, [action, &1, context]))
  end
 
+
+
+
  defmacro __using__(_opts) do
-   quote do
+   quote  do
      @parent Module.split(__MODULE__) |> Enum.drop(-1) |> Module.concat()
+
      @type action :: atom()
      @type store_context :: map()
      @type payload :: map()
@@ -44,6 +48,10 @@ defmodule Redex.Reducer do
      @callback default_state(existing_state :: state()) :: state()
 
      @optional_callbacks default_state: 1
+
+    #  def key, do: opts[:key]
+     def type, do: :reducer
+
 
      defmodule AgentStore do
        @parent Module.split(__MODULE__) |> Enum.drop(-1) |> Module.concat()
