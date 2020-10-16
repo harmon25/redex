@@ -8,12 +8,7 @@ defmodule Redex.AggReducer do
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
       @combine_reducers opts[:combine_reducers]
-
       require Logger
-
-      @default_state Enum.into(@combine_reducers, %{}, fn {k, reducer} ->
-                       {k, reducer.default_state()}
-                     end)
       use GenServer
 
       def type, do: :agg
@@ -83,8 +78,7 @@ defmodule Redex.AggReducer do
         # map over reducers, to make child specs to launch.
         {mod_map, specs} =
           Enum.reduce(@combine_reducers, {%{}, []}, fn {k, reducer}, {reducer_mod_map, specs} ->
-            reducer.type()
-            |> case do
+            case reducer.type() do
               :agg ->
                 {Map.merge(reducer_mod_map, %{k => {reducer, :agg}}),
                  [%{id: k, start: {reducer, :start_link, [[state.id, state.context]]}} | specs]}
@@ -92,7 +86,7 @@ defmodule Redex.AggReducer do
               :reducer ->
                 {Map.merge(reducer_mod_map, %{k => {reducer, :reducer}}),
                  [
-                   %{id: k, start: {Module.concat([reducer, AgentStore]), :start_link, []}}
+                   %{id: k, start: {Module.concat([reducer, State]), :start_link, []}}
                    | specs
                  ]}
             end
@@ -101,19 +95,14 @@ defmodule Redex.AggReducer do
         pid_map =
           Enum.map(specs, fn s ->
             {:ok, pid} = DynamicSupervisor.start_child(supervisor, s)
-
             {s.id, pid}
           end)
           |> Enum.into(%{})
 
-        # merge pids into this map...
+        # merge pids into map...
         Enum.reduce(mod_map, %{}, fn {k, {mod, type}}, acc ->
           Map.put_new(acc, k, {mod, type, pid_map[k]})
         end)
-      end
-
-      def default_state() do
-        @default_state
       end
     end
   end

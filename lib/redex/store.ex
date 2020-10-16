@@ -26,22 +26,15 @@ defmodule Redex.Store do
 
       @impl GenServer
       def init([name, id, context]) do
+        {:ok, root_pid} = @root_reducer.start_link([id, context])
+
         {:ok,
          %{
-           root_pid: nil,
-           id: name,
+           root_pid: root_pid,
+           id: id,
+           name: name,
            context: context
-         }, {:continue, id}}
-      end
-
-      @impl GenServer
-      def handle_continue(id, state) do
-        Logger.debug("Launched store super")
-
-        # must have a root reducer assigned to store - it is started, which cascades down.
-        {:ok, root_pid} = @root_reducer.start_link([id, state.context])
-
-        {:noreply, %{state | root_pid: root_pid}}
+         }}
       end
 
       @impl GenServer
@@ -80,16 +73,9 @@ defmodule Redex.Store do
 
       @impl GenServer
       def terminate(reason, %{id: id}) do
+        require Logger
         Logger.debug("Shutting down #{id} with reason #{inspect(reason)}")
         :ok
-      end
-
-      @doc """
-      Initalize the store -
-      """
-      @spec initalize(atom | pid | port | {atom, atom}, map | nil) :: any
-      def initalize(pid, existing_state \\ nil) do
-        send(pid, {:__live_data_init__, existing_state})
       end
 
       @doc """
@@ -116,7 +102,7 @@ defmodule Redex.Store do
             Map.merge(acc, %{k => do_get_state(GenServer.call(pid, :__child_reducers))})
 
           {k, {mod, :reducer, pid}}, acc ->
-            Map.merge(acc, %{k => apply(Module.concat([mod, "AgentStore"]), :value, [pid])})
+            Map.merge(acc, %{k => apply(Module.concat([mod, State]), :value, [pid])})
         end)
       end
     end

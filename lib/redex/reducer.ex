@@ -24,9 +24,6 @@ defmodule Redex.Reducer do
    Agent.cast(pid, &apply(module, :action, [action, &1, context]))
  end
 
-
-
-
  defmacro __using__(_opts) do
    quote  do
      @parent Module.split(__MODULE__) |> Enum.drop(-1) |> Module.concat()
@@ -53,7 +50,7 @@ defmodule Redex.Reducer do
      def type, do: :reducer
 
 
-     defmodule AgentStore do
+     defmodule State do
        @parent Module.split(__MODULE__) |> Enum.drop(-1) |> Module.concat()
 
        use Agent

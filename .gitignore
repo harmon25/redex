@@ -24,3 +24,5 @@ redex-*.tar
 
 
 .elixir_ls
+
+.iex.exs
