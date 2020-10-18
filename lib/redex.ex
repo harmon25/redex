@@ -5,9 +5,8 @@ defmodule Redex do
   @type action() :: {atom(), any()}
 
   def start_store(store, id, context \\ %{}) do
-    Redex.Application.start_child(store, id, context)
+    Redex.StoreSupervisor.start_child(store, id, context)
   end
-
 
   @spec dispatch(pid(), action()) :: :ok
   def dispatch(pid, action) do
