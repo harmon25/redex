@@ -38,6 +38,12 @@ defmodule Redex.Store do
       end
 
       @impl GenServer
+      def handle_cast({:update_context, context_map}, state) do
+        new_context = Map.merge(state.context, context_map)
+        {:noreply, %{state | context: new_context}}
+      end
+
+      @impl GenServer
       def handle_cast(
             {:dispatch, action},
             %{context: context} = state
@@ -71,6 +77,7 @@ defmodule Redex.Store do
         {:reply, current_state, state}
       end
 
+
       @impl GenServer
       def terminate(reason, %{id: id}) do
         require Logger
@@ -85,6 +92,10 @@ defmodule Redex.Store do
       @spec dispatch(atom | pid | {atom, any} | {:via, atom, any}, any) :: :ok
       def dispatch(pid, action) do
         GenServer.cast(pid, {:dispatch, action})
+      end
+
+      def update_context(pid, new_context) do
+        GenServer.cast(pid, {:update_context, new_context})
       end
 
       @doc """
