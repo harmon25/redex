@@ -116,7 +116,7 @@ defmodule Redex.Reducer do
 
 defmacro __before_compile__(env) do
   quote do
-    IO.inspect(@spec, label: "spec")
+   # IO.inspect(@spec, label: "spec")
     if @types_output_path do
       Path.dirname(unquote(env.file))
       |> Path.join(@types_output_path)
@@ -126,14 +126,4 @@ defmacro __before_compile__(env) do
   end
 end
 
-defp wrap_handler(handler) do
-  {k, f, a, _g, b} = handler
-
-  quote do
-    unquote(k)(
-      unquote("__live_data_#{f}__" |> String.to_atom())(unquote_splicing(a)),
-      unquote(b)
-    )
-  end
-end
 end
