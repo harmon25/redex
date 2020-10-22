@@ -24,9 +24,11 @@ defmodule Redex.Reducer do
    Agent.cast(pid, &apply(module, :action, [action, &1, context]))
  end
 
- defmacro __using__(_opts) do
+
+ defmacro __using__(opts) do
    quote  do
      @parent Module.split(__MODULE__) |> Enum.drop(-1) |> Module.concat()
+     @types_output_path Keyword.get(unquote(opts), :types_output_path, false)
 
      @type action :: atom()
      @type store_context :: map()
@@ -107,6 +109,31 @@ defmodule Redex.Reducer do
        existing_state
      end
 
+    #  @on_definition Redex.Reducer
+     @before_compile Redex.Reducer
    end
  end
+
+defmacro __before_compile__(env) do
+  quote do
+    IO.inspect(@spec, label: "spec")
+    if @types_output_path do
+      Path.dirname(unquote(env.file))
+      |> Path.join(@types_output_path)
+      |> Path.join(Path.basename(unquote(env.file), ".ex") <> ".ts")
+      |> File.write(Redex.TypespecParser.to_ts(@spec))
+    end
+  end
+end
+
+defp wrap_handler(handler) do
+  {k, f, a, _g, b} = handler
+
+  quote do
+    unquote(k)(
+      unquote("__live_data_#{f}__" |> String.to_atom())(unquote_splicing(a)),
+      unquote(b)
+    )
+  end
+end
 end
