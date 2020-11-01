@@ -10,23 +10,28 @@ defmodule Redex.TypespecParser do
     }
     """
   end
+
   def _to_ts([]) do
     "{}"
   end
+
   def _to_ts(params) when is_list(params) do
     """
     {
     #{Enum.map(params, fn {key, type} -> "    #{key}: #{type}" end) |> Enum.join("\n")}
-      }
+    }
     """
     |> String.trim_trailing()
   end
+
   def _to_ts(type) do
     type |> to_string
   end
+
   def actions([]) do
     []
   end
+
   def actions(specs) do
     specs
     |> Enum.filter(fn
@@ -37,22 +42,27 @@ defmodule Redex.TypespecParser do
       {action_name, to_type(params)}
     end)
   end
-  def to_type({:%{}, _, map_fields} = args) do
-    IO.inspect(args)
+
+  def to_type({:%{}, _, map_fields}) do
     map_fields |> Enum.map(&to_type/1)
   end
+
   def to_type({key, value_type}) do
     {key, to_type(value_type)}
   end
+
   def to_type(nil) do
     :null
   end
+
   def to_type({:integer, _, []}) do
     :number
   end
+
   def to_type({:map, _, []}) do
     :Object
   end
+
   def to_type({{:., _, [{_, _, [:String]}, _]}, _, _}) do
     :string
   end

@@ -30,30 +30,39 @@ defmodule RedexTest do
 
   defmodule DeeplyNestedReducer do
     use Redex.AggReducer,
-    combine_reducers: %{counter: RedexTest.CounterReducer}
+      combine_reducers: %{counter: RedexTest.CounterReducer}
   end
-
 
   defmodule NestedReducer do
     use Redex.AggReducer,
-    combine_reducers: %{counter: RedexTest.CounterReducer, deeply_nested: DeeplyNestedReducer }
+      combine_reducers: %{counter: RedexTest.CounterReducer, deeply_nested: DeeplyNestedReducer}
   end
 
   defmodule RootReducer do
     use Redex.AggReducer,
-    combine_reducers: %{counter: RedexTest.CounterReducer, counter2: RedexTest.CounterReducer, counter3: RedexTest.CounterReducer}
+      combine_reducers: %{
+        counter: RedexTest.CounterReducer,
+        counter2: RedexTest.CounterReducer,
+        counter3: RedexTest.CounterReducer
+      }
   end
 
   defmodule NestedRootReducer do
+    @moduledoc """
+    Sample nested reducer
+    """
     use Redex.AggReducer,
-    combine_reducers: %{counter: RedexTest.CounterReducer, nested: NestedReducer }
+      combine_reducers: %{counter: RedexTest.CounterReducer, nested: NestedReducer}
   end
-
 
   defmodule NestedStore do
-    use Redex.Store, root_reducer: RedexTest.NestedRootReducer,
-      change_callback: {RedexTest.Store, :change_callback}
+    @moduledoc """
+    Sample store with some nested reducers
+    """
 
+    use Redex.Store,
+      root_reducer: RedexTest.NestedRootReducer,
+      change_callback: {RedexTest.NestedStore, :change_callback}
 
     def change_callback(old_state, new_state, store_context) do
       # do whatever you want after an action has been dispatched, like broadcast diffs
@@ -61,12 +70,15 @@ defmodule RedexTest do
       # broadcast!(store_context.socket, %{diff: diff})
     end
   end
-
 
   defmodule Store do
-    use Redex.Store, root_reducer: RedexTest.RootReducer,
-      change_callback: {RedexTest.Store, :change_callback}
+    @moduledoc """
+    Sample simple store
+    """
 
+    use Redex.Store,
+      root_reducer: RedexTest.RootReducer,
+      change_callback: {RedexTest.Store, :change_callback}
 
     def change_callback(old_state, new_state, store_context) do
       # do whatever you want after an action has been dispatched, like broadcast diffs
@@ -74,7 +86,6 @@ defmodule RedexTest do
       # broadcast!(store_context.socket, %{diff: diff})
     end
   end
-
 
   setup_all do
     {:ok, store_pid} = Redex.start_store(__MODULE__.Store, 1)
@@ -82,18 +93,21 @@ defmodule RedexTest do
     [store: store_pid, nested_store: nested_store_pid]
   end
 
-
-
   test "we have a store!", %{store: store} do
-    assert Redex.get_state(store) === %{counter: 0, counter2: 0, counter3: 0}
+    assert Redex.Store.get_state(store) === %{counter: 0, counter2: 0, counter3: 0}
   end
 
   test "we have a nested store!", %{nested_store: store} do
-    assert Redex.get_state(store) === %{counter: 0, nested: %{counter: 0, deeply_nested: %{counter: 0} }}
+    assert Redex.Store.get_state(store) === %{
+             counter: 0,
+             nested: %{counter: 0, deeply_nested: %{counter: 0}}
+           }
 
-    Redex.dispatch(store, {:add, 5})
+    Redex.Store.dispatch(store, {:add, 5})
 
-    assert Redex.get_state(store) === %{counter: 5, nested: %{counter: 5, deeply_nested: %{counter: 5} }}
-
+    assert Redex.Store.get_state(store) === %{
+             counter: 5,
+             nested: %{counter: 5, deeply_nested: %{counter: 5}}
+           }
   end
 end

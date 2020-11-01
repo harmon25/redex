@@ -4,15 +4,59 @@ defmodule Redex.Store do
 
   Includes a genserver linked to a dynamic_supervisor monitoring the reducer processes
   """
-  def callback(old, new, _context) do
+  def default_callback(old, new, _context) do
     IO.inspect(old, label: "old state")
     IO.inspect(new, label: "new state")
+  end
+
+  @doc """
+  Link a process to the store - the store will recieve :DOWN messages.
+
+  Store can be launched with a timeout - if there are no links after timeout - the store terminates.
+  """
+  def link(store_pid, to_monitor_pid) do
+    GenServer.cast(store_pid, {:add_link, to_monitor_pid})
+  end
+
+  @doc """
+  Dispatch an action against the store.
+  Acion gets sent to each reducer. If no matching callback is defined - reducer will ignore the action and not modify its' state.
+  """
+  @spec dispatch(atom | pid | {atom, any} | {:via, atom, any}, any) :: :ok
+  def dispatch(pid, action) do
+    GenServer.cast(pid, {:dispatch, action})
+  end
+
+  @doc """
+  Update a store context.
+
+  (consider doing shallow merge?)
+  """
+  @spec update_context(atom | pid | {atom, any} | {:via, atom, any}, any) :: :ok
+  def update_context(pid, new_context) do
+    GenServer.cast(pid, {:update_context, new_context})
+  end
+
+  @doc """
+  Retrieves the current context applied to a context.
+  """
+  @spec get_context(atom | pid | {atom, any} | {:via, atom, any}) :: map()
+  def get_context(pid) do
+    GenServer.call(pid, :get_context)
+  end
+
+  @doc """
+  Retrieves the current state of a store.
+  """
+  @spec get_state(atom | pid | {atom, any} | {:via, atom, any}) :: any
+  def get_state(pid) do
+    GenServer.call(pid, :get_state)
   end
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
       @root_reducer opts[:root_reducer]
-      @change_callback opts[:change_callback] || {LiveData.Store, :callback}
+      @change_callback opts[:change_callback] || {LiveData.Store, :default_callback}
 
       require Logger
       use GenServer
@@ -33,8 +77,15 @@ defmodule Redex.Store do
            root_pid: root_pid,
            id: id,
            name: name,
-           context: context
+           context: context,
+           links: []
          }}
+      end
+
+      @impl GenServer
+      def handle_cast({:add_link, pid}, state) do
+        ref = Process.monitor(pid)
+        {:noreply, %{state | links: [{ref, pid} | state.links]}}
       end
 
       @impl GenServer
@@ -48,7 +99,7 @@ defmodule Redex.Store do
             {:dispatch, action},
             %{context: context} = state
           ) do
-        child_reducers = GenServer.call(state.root_pid, :__child_reducers)
+        child_reducers = Redex.AggReducer.get_child_reducers(state.root_pid)
 
         old_state = do_get_state(child_reducers)
 
@@ -59,7 +110,7 @@ defmodule Redex.Store do
             Redex.Reducer.reduce(pid, mod, action, context)
 
           {_k, {mod, :agg, pid}} ->
-            GenServer.cast(pid, {:dispatch, action})
+            Redex.Store.dispatch(pid, action)
         end)
 
         new_state = do_get_state(child_reducers)
@@ -73,10 +124,21 @@ defmodule Redex.Store do
 
       @impl GenServer
       def handle_call(:get_state, _from, state) do
-        current_state = GenServer.call(state.root_pid, :__child_reducers) |> do_get_state()
+        current_state = Redex.AggReducer.get_child_reducers(state.root_pid) |> do_get_state()
         {:reply, current_state, state}
       end
 
+      @impl GenServer
+      def handle_call(:get_context, _from, state) do
+        {:reply, state.context, state}
+      end
+
+      @impl GenServer
+      def handle_info({:DOWN, ref, :process, object, reason}, state) do
+        IO.inspect(ref, label: "PROCESS DOWN!")
+        IO.inspect(object)
+        {:noreply, state}
+      end
 
       @impl GenServer
       def terminate(reason, %{id: id}) do
@@ -85,35 +147,16 @@ defmodule Redex.Store do
         :ok
       end
 
-      @doc """
-      Dispatch an action against the store.
-      Acion gets sent to each reducer. If no matching callback is defined - reducer will ignore the action and not modify its' state.
-      """
-      @spec dispatch(atom | pid | {atom, any} | {:via, atom, any}, any) :: :ok
-      def dispatch(pid, action) do
-        GenServer.cast(pid, {:dispatch, action})
-      end
-
-      def update_context(pid, new_context) do
-        GenServer.cast(pid, {:update_context, new_context})
-      end
-
-      @doc """
-      Grabs the current state the store.
-      """
-      @spec get_state(atom | pid | {atom, any} | {:via, atom, any}) :: any
-      def get_state(pid) do
-        GenServer.call(pid, :get_state)
-      end
-
       defp do_get_state(reducers) do
         reducers
         |> Enum.reduce(%{}, fn
           {k, {_mod, :agg, pid}}, acc ->
-            Map.merge(acc, %{k => do_get_state(GenServer.call(pid, :__child_reducers))})
+            acc
+            |> Map.merge(%{k => do_get_state(Redex.AggReducer.get_child_reducers(pid))})
 
           {k, {mod, :reducer, pid}}, acc ->
-            Map.merge(acc, %{k => apply(Module.concat([mod, State]), :value, [pid])})
+            acc
+            |> Map.merge(%{k => apply(Module.concat([mod, State]), :value, [pid])})
         end)
       end
     end

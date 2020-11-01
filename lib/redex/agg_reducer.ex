@@ -1,10 +1,17 @@
 defmodule Redex.AggReducer do
   @moduledoc """
-  Aggragete Reducer.
-  Agregates the state of sub reducers into a map.
+  # Aggregate Reducer
+
+  Aggregates the state of sub reducers into a map.
+
   Must be used at root of the state tree.
-  Also can be used to express nested reducers...
   """
+
+  @spec get_child_reducers(atom | pid | {atom, any} | {:via, atom, any}) :: any
+  def get_child_reducers(pid) do
+    GenServer.call(pid, :__child_reducers)
+  end
+
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
       @combine_reducers opts[:combine_reducers]
@@ -68,10 +75,6 @@ defmodule Redex.AggReducer do
       @impl GenServer
       def handle_call(:__child_reducers, _from, state) do
         {:reply, state.reducers, state}
-      end
-
-      def handle_call(:__redix_state, _from, state) do
-        {:reply, state, state}
       end
 
       def start_reducers(supervisor, state) do
