@@ -60,8 +60,11 @@ defmodule Redex.Store do
 
       require Logger
       use GenServer
+      @type context :: map()
 
       @type store_state :: map()
+
+      @callback init(root_pid :: pid(), context :: context()) :: {:ok, context()}
 
       def start_link([id, context]) do
         name = Module.concat([__MODULE__, "#{id}"])
@@ -70,14 +73,17 @@ defmodule Redex.Store do
 
       @impl GenServer
       def init([name, id, context]) do
-        {:ok, root_pid} = @root_reducer.start_link([id, context])
+
+        {:ok, init_context} = __MODULE__.init(name, context)
+
+        {:ok, root_pid} = @root_reducer.start_link([id, init_context])
 
         {:ok,
          %{
            root_pid: root_pid,
            id: id,
            name: name,
-           context: context,
+           context: init_context,
            links: []
          }}
       end

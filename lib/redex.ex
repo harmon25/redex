@@ -21,6 +21,4 @@ defmodule Redex do
   def dispatch(store, action) do
     Redex.Store.dispatch(store, action)
   end
-
-
 end

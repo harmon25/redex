@@ -64,6 +64,10 @@ defmodule RedexTest do
       root_reducer: RedexTest.NestedRootReducer,
       change_callback: {RedexTest.NestedStore, :change_callback}
 
+    def init(name, context) do
+      {:ok, context}
+    end
+
     def change_callback(old_state, new_state, store_context) do
       # do whatever you want after an action has been dispatched, like broadcast diffs
       # diff = Diff.run(old_state, new_state)
@@ -79,6 +83,10 @@ defmodule RedexTest do
     use Redex.Store,
       root_reducer: RedexTest.RootReducer,
       change_callback: {RedexTest.Store, :change_callback}
+
+    def init(name, context) do
+      {:ok, context}
+    end
 
     def change_callback(old_state, new_state, store_context) do
       # do whatever you want after an action has been dispatched, like broadcast diffs
